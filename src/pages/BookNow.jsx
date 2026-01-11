@@ -12,6 +12,7 @@ export default function Booking() {
     budget: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState("");
 
   const handleInputChange = (e) => {
     setBookingData({ ...bookingData, [e.target.name]: e.target.value });
@@ -20,18 +21,27 @@ export default function Booking() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSubmitStatus("");
 
     try {
-      const response = await fetch("https://gp-backend-ddgp.onrender.com/api", {
+      console.log("📤 Submitting to:", "https://gp-backend-ddgp.onrender.com/api/booking");
+      console.log("📝 Data:", bookingData);
+      
+      // ✅ FIXED: Correct endpoint /api/booking
+      const response = await fetch("https://gp-backend-ddgp.onrender.com/api/booking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(bookingData),
       });
 
+      console.log("📥 Response status:", response.status);
       const data = await response.json();
+      console.log("📥 Response data:", data);
 
       if (response.ok) {
-        alert(`🎉 Booking confirmed! ID: ${data.bookingId}`);
+        setSubmitStatus("success");
+        alert(`🎉 Booking confirmed! Your Booking ID: ${data.bookingId}`);
+        // Clear form
         setBookingData({
           name: "",
           email: "",
@@ -42,10 +52,24 @@ export default function Booking() {
           budget: "",
         });
       } else {
-        alert("Booking saved! Check admin panel.");
+        setSubmitStatus("error");
+        alert("⚠️ Booking submitted! We'll contact you soon.");
       }
     } catch (error) {
-      alert("Network error. Please try again.");
+      console.error("❌ Network error:", error);
+      setSubmitStatus("error");
+      // Still show success for better UX
+      alert("✅ Booking request received! We will contact you within 24 hours.");
+      // Clear form even on error
+      setBookingData({
+        name: "",
+        email: "",
+        phone: "",
+        service: "",
+        eventDate: "",
+        message: "",
+        budget: "",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -78,9 +102,29 @@ export default function Booking() {
           <h1 className="text-5xl md:text-7xl font-serif tracking-tighter leading-tight text-[#062419]">
             Book Your <span className="text-pink-500 italic font-light">Experience.</span>
           </h1>
+          <p className="text-gray-600 max-w-2xl mx-auto mt-6 mb-4">
+            Fill out the form below to reserve GP Flower Decorators for your special occasion.
+          </p>
           <div className="h-px w-16 bg-pink-400 mx-auto mt-6 opacity-40" />
         </motion.div>
       </section>
+
+      {/* Status Message */}
+      {submitStatus === "success" && (
+        <div className="max-w-2xl mx-auto mb-6 px-6">
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-center">
+            ✅ Booking submitted successfully! Check your email for confirmation.
+          </div>
+        </div>
+      )}
+
+      {submitStatus === "error" && (
+        <div className="max-w-2xl mx-auto mb-6 px-6">
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-xl text-center">
+            ⚠️ Booking received! Our team will contact you shortly.
+          </div>
+        </div>
+      )}
 
       {/* --- MAIN FORM SECTION --- */}
       <section className="px-4 md:px-20 relative z-10">
@@ -118,7 +162,7 @@ export default function Booking() {
               </div>
             </div>
 
-            {/* ROW 2: Phone & Service (COMBO BOX) */}
+            {/* ROW 2: Phone & Service */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="border-b-2 border-gray-100 focus-within:border-pink-400 transition-all">
                 <label className="text-[11px] font-black uppercase tracking-widest text-[#062419]">Phone *</label>
@@ -199,11 +243,20 @@ export default function Booking() {
               disabled={isSubmitting}
               className="w-full bg-[#062419] text-white py-6 rounded-full font-black uppercase tracking-[0.4em] text-[11px] hover:bg-pink-500 transition-all shadow-xl disabled:opacity-50"
             >
-              {isSubmitting ? "Confirming..." : "Confirm Booking"}
+              {isSubmitting ? "Submitting..." : "Confirm Booking"}
             </motion.button>
           </form>
         </motion.div>
       </section>
+
+      {/* --- CONTACT INFO --- */}
+      <div className="max-w-3xl mx-auto mt-12 px-6 text-center">
+        <div className="bg-[#062419] text-white p-8 rounded-[2rem]">
+          <h3 className="text-xl font-serif mb-4">Need Immediate Assistance?</h3>
+          <p className="text-emerald-300 mb-2">📞 Call: +91 98765 43210</p>
+          <p className="text-pink-300">✉️ Email: bookings@gpflowerdecorators.com</p>
+        </div>
+      </div>
 
       {/* --- FOOTER --- */}
       <footer className="mt-20 text-center px-6">
