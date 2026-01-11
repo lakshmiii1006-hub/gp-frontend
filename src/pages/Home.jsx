@@ -3,12 +3,14 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://gp-backend-ddgp.onrender.com/api'
+// Fixed API URL - matches your backend routes
+const API_URL = 'https://gp-backend-ddgp.onrender.com/api'
 
 function Home() {
   const shouldReduceMotion = useReducedMotion()
   const [testimonials, setTestimonials] = useState([])
   const [loading, setLoading] = useState(true)
+  const [apiStatus, setApiStatus] = useState('idle')
   
   // FORM STATE
   const [formData, setFormData] = useState({ 
@@ -36,47 +38,75 @@ function Home() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // ✅ FIXED: Render cold start + proper error handling
+  // Fetch testimonials - working version
   const fetchTestimonials = useCallback(async () => {
-    const controller = new AbortController()
-    
     try {
       setLoading(true)
-      console.log('🔍 Fetching from:', `${API_URL}/testimonials`)
+      setApiStatus('loading')
       
+      console.log('🔍 Fetching testimonials from:', `${API_URL}/testimonials`)
+      
+      // Try to fetch from API
       const response = await axios.get(`${API_URL}/testimonials`, { 
-        signal: controller.signal,
-        timeout: 20000  // 20s for Render cold start
+        timeout: 15000
       })
       
+      console.log('✅ Testimonials API Response:', response.status)
+      
       const data = response.data || []
-      const approved = Array.isArray(data) ? data.filter(t => t.isApproved !== false) : []
+      console.log('📊 Received testimonials:', data.length)
       
-      console.log('✅ API Response:', approved.length, 'approved testimonials')
-      
-      if (approved.length > 0) {
-        setTestimonials(approved)
-        return
+      if (Array.isArray(data) && data.length > 0) {
+        setTestimonials(data)
+        setApiStatus('success')
+        console.log('✅ Using real testimonials from API')
+      } else {
+        // No testimonials in database, use fallback
+        console.log('📭 No testimonials found in database, using fallback')
+        setApiStatus('empty')
+        useFallbackTestimonials()
       }
       
     } catch (err) {
-      if (err.code !== 'ECONNABORTED') {
-        console.log('🔄 API unavailable, using fallback:', err.message)
-      }
+      console.log('🔄 API unavailable, using fallback:', err.message)
+      setApiStatus('error')
+      useFallbackTestimonials()
     } finally {
       setLoading(false)
     }
-    
-    // ✅ Premium fallback testimonials
+  }, [])
+
+  const useFallbackTestimonials = () => {
     console.log('📱 Using fallback testimonials')
     setTestimonials([
-      { name: "Rahul S.", message: "Transformed our wedding hall into a floral paradise. Unbelievable work!", rating: 5, isApproved: true },
-      { name: "Priya P.", message: "The car decoration was so elegant and stayed fresh all day.", rating: 5, isApproved: true },
-      { name: "Amit K.", message: "GP Flower Decorators are the only ones I trust in Sindgi.", rating: 5, isApproved: true }
+      { 
+        _id: 'fallback1',
+        name: "Rahul S.", 
+        message: "Transformed our wedding hall into a floral paradise. Unbelievable work!", 
+        rating: 5, 
+        isApproved: true,
+        occasion: "Wedding Celebration"
+      },
+      { 
+        _id: 'fallback2',
+        name: "Priya P.", 
+        message: "The car decoration was so elegant and stayed fresh all day.", 
+        rating: 5, 
+        isApproved: true,
+        occasion: "Luxury Car Decoration"
+      },
+      { 
+        _id: 'fallback3',
+        name: "Amit K.", 
+        message: "GP Flower Decorators are the only ones I trust in Sindgi.", 
+        rating: 5, 
+        isApproved: true,
+        occasion: "Wedding Celebration"
+      }
     ])
-  }, [API_URL])
+  }
 
-  // ✅ FIXED: Form submission with proper timeout + optimistic UX
+  // Form submission - working version
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault()
     
@@ -94,36 +124,65 @@ function Home() {
     setStatus('')
     
     try {
-      console.log('📤 Submitting to:', `${API_URL}/testimonials`)
+      console.log('📤 Submitting testimonial...')
+      console.log('📝 Data:', formData)
+      
       const response = await axios.post(`${API_URL}/testimonials`, formData, { 
-        timeout: 20000,
-        headers: { 'Content-Type': 'application/json' }
+        timeout: 10000,
+        headers: { 
+          'Content-Type': 'application/json'
+        }
       })
       
-      console.log('✅ Submission success:', response.status)
-      setStatus('✅ Success! Your review is sent for approval.')
-      setFormData({ name: '', message: '', rating: 0, occasion: 'Wedding Celebration' })
+      console.log('✅ Submission successful:', response.status)
+      setStatus('✅ Success! Your review has been submitted for approval.')
+      
+      // Clear form
+      setFormData({ 
+        name: '', 
+        message: '', 
+        rating: 0,
+        occasion: 'Wedding Celebration' 
+      })
       setIsOtherOccasion(false)
       setHoveredStar(0)
+      
+      // Show success message
       setTimeout(() => setStatus(''), 5000)
       
-      // Refresh testimonials after successful submission
+      // Refresh testimonials after submission
       fetchTestimonials()
       
     } catch (err) {
-      console.error("❌ Submission Error:", err.response?.status, err.message)
+      console.error("❌ Submission Error:", err.message)
       
-      if (err.code === 'ECONNABORTED' || err.response?.status >= 500) {
-        setStatus('🌟 Thank you! Your review is queued (server waking up)')
-      } else if (err.response?.status === 404) {
-        setStatus('❌ Service temporarily unavailable. Please try again.')
+      if (err.response) {
+        // Server responded with error
+        if (err.response.status === 404) {
+          setStatus('⚠️ Testimonials feature is being set up. Thank you for your feedback!')
+        } else {
+          setStatus('⚠️ Server error. Please try again later.')
+        }
+      } else if (err.code === 'ECONNABORTED') {
+        setStatus('🔄 Submission timed out. Please try again.')
       } else {
-        setStatus('❌ Network error. Please try again.')
+        setStatus('⚠️ Network error. Please check your connection.')
       }
+      
+      // Clear form even on error
+      setTimeout(() => {
+        setFormData({ 
+          name: '', 
+          message: '', 
+          rating: 0,
+          occasion: 'Wedding Celebration' 
+        })
+      }, 3000)
+      
     } finally {
       setIsSubmitting(false)
     }
-  }, [formData, API_URL, fetchTestimonials])
+  }, [formData, fetchTestimonials])
 
   const TestimonialSkeleton = () => (
     <div className="flex animate-marquee-fast whitespace-nowrap">
@@ -239,8 +298,16 @@ function Home() {
         </section>
 
         {/* --- TESTIMONIAL MARQUEE --- */}
-        <section className="bg-[#111111] py-24 overflow-hidden">
+        <section className="bg-[#111111] py-24 overflow-hidden relative">
           <h2 className="text-center text-white font-serif text-4xl mb-16 italic">Voices of Satisfaction</h2>
+          
+          {/* Status indicator */}
+          <div className="absolute top-6 right-6">
+            <div className={`px-3 py-1 rounded-full text-[10px] font-bold ${apiStatus === 'success' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'}`}>
+              {apiStatus === 'success' ? '✓ Live Testimonials' : 'Demo Testimonials'}
+            </div>
+          </div>
+          
           <div className="relative flex overflow-x-hidden">
             <AnimatePresence mode="wait">
               {loading ? (
@@ -248,12 +315,21 @@ function Home() {
               ) : (
                 <div className="animate-marquee-fast pause-hover">
                   {[...testimonials, ...testimonials, ...testimonials].map((t, i) => (
-                    <div key={i} className="mx-6 bg-white/5 backdrop-blur-xl p-10 rounded-[2.5rem] border border-white/10 w-[400px] whitespace-normal">
+                    <div key={`${t._id || t.name}-${i}`} className="mx-6 bg-white/5 backdrop-blur-xl p-10 rounded-[2.5rem] border border-white/10 w-[400px] whitespace-normal">
                       <div className="text-yellow-400 mb-6 flex gap-1">
-                        {[...Array(t.rating || 5)].map((_, star) => <span key={star}>★</span>)}
+                        {[...Array(t.rating || 5)].map((_, star) => (
+                          <span key={star}>★</span>
+                        ))}
                       </div>
                       <p className="text-gray-200 text-lg font-light italic mb-8 leading-relaxed">"{t.message}"</p>
-                      <p className="text-emerald-400 font-black tracking-[0.3em] uppercase text-[10px]">— {t.name}</p>
+                      <div className="flex justify-between items-center">
+                        <p className="text-emerald-400 font-black tracking-[0.3em] uppercase text-[10px]">— {t.name}</p>
+                        {t.occasion && (
+                          <span className="text-gray-400 text-[8px] font-medium uppercase tracking-widest bg-white/10 px-2 py-1 rounded">
+                            {t.occasion}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -278,7 +354,13 @@ function Home() {
                 <AnimatePresence>
                   {status && (
                     <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-                      className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${status.includes('✅') || status.includes('🌟') ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'}`}
+                      className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                        status.includes('✅') || status.includes('Success') 
+                          ? 'bg-emerald-50 text-emerald-800' 
+                          : status.includes('⚠️') 
+                            ? 'bg-yellow-50 text-yellow-700' 
+                            : 'bg-red-50 text-red-700'
+                      }`}
                     >
                       {status}
                     </motion.div>
@@ -292,10 +374,21 @@ function Home() {
                   <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-6">Rate Our Excellence</span>
                   <div className="flex gap-4">
                     {[1, 2, 3, 4, 5].map((num) => (
-                      <button key={num} type="button" onMouseEnter={() => setHoveredStar(num)} onMouseLeave={() => setHoveredStar(0)}
-                        onClick={() => setFormData({...formData, rating: num})} className="relative transition-transform active:scale-90"
+                      <button 
+                        key={num} 
+                        type="button" 
+                        onMouseEnter={() => setHoveredStar(num)} 
+                        onMouseLeave={() => setHoveredStar(0)}
+                        onClick={() => setFormData({...formData, rating: num})} 
+                        className="relative transition-transform active:scale-90"
                       >
-                        <span className={`text-5xl transition-all duration-300 ${(hoveredStar || formData.rating) >= num ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]' : 'text-gray-100'}`}>★</span>
+                        <span className={`text-5xl transition-all duration-300 ${
+                          (hoveredStar || formData.rating) >= num 
+                            ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]' 
+                            : 'text-gray-100'
+                        }`}>
+                          ★
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -308,7 +401,14 @@ function Home() {
                   {/* NAME */}
                   <div className="group border-b border-gray-200 focus-within:border-emerald-900 transition-all duration-500">
                     <label className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-500 group-focus-within:text-emerald-900 transition-colors">Client Identity</label>
-                    <input required type="text" value={formData.name} placeholder="E.g. Rajesh Patil" className="w-full py-4 bg-transparent outline-none font-serif text-xl text-[#1A1A1A] placeholder:text-gray-200" onChange={(e) => setFormData({...formData, name: e.target.value})} />
+                    <input 
+                      required 
+                      type="text" 
+                      value={formData.name} 
+                      placeholder="E.g. Rajesh Patil" 
+                      className="w-full py-4 bg-transparent outline-none font-serif text-xl text-[#1A1A1A] placeholder:text-gray-200" 
+                      onChange={(e) => setFormData({...formData, name: e.target.value})} 
+                    />
                   </div>
 
                   {/* HYBRID OCCASION SELECTOR */}
@@ -347,7 +447,16 @@ function Home() {
                             value={formData.occasion}
                             onChange={(e) => setFormData({...formData, occasion: e.target.value})}
                           />
-                          <button type="button" onClick={() => { setIsOtherOccasion(false); setFormData({...formData, occasion: "Wedding Celebration"}); }} className="text-[9px] font-black text-pink-400 uppercase tracking-widest ml-2">Reset</button>
+                          <button 
+                            type="button" 
+                            onClick={() => { 
+                              setIsOtherOccasion(false); 
+                              setFormData({...formData, occasion: "Wedding Celebration"}); 
+                            }} 
+                            className="text-[9px] font-black text-pink-400 uppercase tracking-widest ml-2 hover:text-pink-600 transition-colors"
+                          >
+                            Reset
+                          </button>
                         </div>
                       )}
                     </div>
@@ -357,16 +466,29 @@ function Home() {
                 {/* MESSAGE */}
                 <div className="group border-b border-gray-200 focus-within:border-emerald-900 transition-all duration-500 pt-4">
                   <label className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-500 group-focus-within:text-emerald-900 transition-colors">The Narrative</label>
-                  <textarea required rows="4" value={formData.message} placeholder="Tell us about the floral magic..." className="w-full py-4 bg-transparent outline-none font-serif text-xl text-[#1A1A1A] placeholder:text-gray-200 resize-none leading-relaxed" onChange={(e) => setFormData({...formData, message: e.target.value})} />
+                  <textarea 
+                    required 
+                    rows="4" 
+                    value={formData.message} 
+                    placeholder="Tell us about the floral magic..." 
+                    className="w-full py-4 bg-transparent outline-none font-serif text-xl text-[#1A1A1A] placeholder:text-gray-200 resize-none leading-relaxed" 
+                    onChange={(e) => setFormData({...formData, message: e.target.value})} 
+                  />
                 </div>
 
                 {/* SUBMIT BUTTON */}
                 <div className="pt-10 flex flex-col items-center">
-                  <button disabled={isSubmitting} type="submit" className="group relative w-full md:w-80 overflow-hidden py-6 bg-emerald-900 text-white rounded-2xl font-black uppercase tracking-[0.4em] text-[10px] transition-all hover:bg-black active:scale-95 disabled:opacity-50 shadow-2xl">
-                    <span className="relative z-10">{isSubmitting ? 'Recording Experience...' : 'Publish Review'}</span>
+                  <button 
+                    disabled={isSubmitting} 
+                    type="submit" 
+                    className="group relative w-full md:w-80 overflow-hidden py-6 bg-emerald-900 text-white rounded-2xl font-black uppercase tracking-[0.4em] text-[10px] transition-all hover:bg-black active:scale-95 disabled:opacity-50 shadow-2xl"
+                  >
+                    <span className="relative z-10">
+                      {isSubmitting ? 'Recording Experience...' : 'Publish Review'}
+                    </span>
                   </button>
                   <p className="mt-4 text-[10px] text-gray-400 text-center max-w-md">
-                    💡 Sign in for exclusive admin panel access
+                    💡 All reviews are moderated before appearing
                   </p>
                 </div>
               </form>
@@ -379,7 +501,10 @@ function Home() {
       {showStickyCTA && (
         <motion.div initial={{ y: 100 }} animate={{ y: 0 }} className="fixed bottom-6 right-6 z-50 lg:hidden">
           <Link to="/book">
-            <motion.button whileTap={{ scale: 0.95 }} className="bg-emerald-900 text-white px-8 py-4 rounded-full font-bold text-sm tracking-widest uppercase shadow-2xl active:scale-95">
+            <motion.button 
+              whileTap={{ scale: 0.95 }} 
+              className="bg-emerald-900 text-white px-8 py-4 rounded-full font-bold text-sm tracking-widest uppercase shadow-2xl active:scale-95 hover:bg-black transition-colors"
+            >
               Book Now ↓
             </motion.button>
           </Link>
