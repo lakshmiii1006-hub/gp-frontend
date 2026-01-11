@@ -22,7 +22,7 @@ export default function Booking() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("https://gp-backend-ddgp.onrender.com/api/book", {
+      const response = await fetch("https://gp-backend-ddgp.onrender.com/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(bookingData),
