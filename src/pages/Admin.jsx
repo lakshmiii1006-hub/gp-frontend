@@ -602,25 +602,27 @@ function EventsAdmin({ showToast }) {
 /* ================= TESTIMONIALS ================= */
 function TestimonialsAdmin({ showToast }) {
   const [testimonials, setTestimonials] = useState([]);
-  const [view, setView] = useState("pending"); // "pending" or "all"
+  const [view, setView] = useState("pending"); // "pending" | "all"
   const [loading, setLoading] = useState(true);
 
-  // ✅ FIXED: Added proper API endpoints + error handling
+  /* ================= FETCH ================= */
   const fetchTestimonials = async (currentView) => {
     setLoading(true);
     try {
-      const endpoint = currentView === "pending" 
-        ? `${API_TESTIMONIALS}/pending`      // GET /api/testimonials/pending
-        : API_TESTIMONIALS;                  // GET /api/testimonials (all/approved)
-      
-      console.log('🔍 Admin fetching:', endpoint);
+      const endpoint =
+        currentView === "pending"
+          ? `${API_TESTIMONIALS}/pending`
+          : API_TESTIMONIALS;
+
+      console.log("🔍 Admin fetching:", endpoint);
+
       const res = await axios.get(endpoint, { timeout: 15000 });
-      const data = Array.isArray(res.data) ? res.data : (res.data.testimonials || []);
-      setTestimonials(data);
-      console.log('✅ Admin loaded:', data.length, 'testimonials');
+      setTestimonials(Array.isArray(res.data) ? res.data : []);
+
+      console.log("✅ Loaded:", res.data.length, "testimonials");
     } catch (err) {
-      console.error('❌ Admin fetch failed:', err.message);
-      showToast(`Failed to fetch ${view} testimonials`, true);
+      console.error("❌ Fetch failed:", err.response?.status || err.message);
+      showToast("Failed to load testimonials", true);
     } finally {
       setLoading(false);
     }
@@ -630,111 +632,127 @@ function TestimonialsAdmin({ showToast }) {
     fetchTestimonials(view);
   }, [view]);
 
-  // ✅ FIXED: Proper approve endpoint
-  const approve = async (id) => {
+  /* ================= APPROVE ================= */
+  const approveTestimonial = async (id) => {
     try {
-      console.log('✅ Approving:', id);
       await axios.put(`${API_TESTIMONIALS}/${id}/approve`, {}, { timeout: 10000 });
       setTestimonials(prev => prev.filter(t => t._id !== id));
-      showToast("✅ Review published successfully!");
+      showToast("✅ Testimonial approved!");
     } catch (err) {
-      console.error('❌ Approve failed:', err.response?.status || err.message);
-      showToast("❌ Failed to approve review", true);
+      console.error("❌ Approve failed:", err.response?.status || err.message);
+      showToast("❌ Failed to approve testimonial", true);
     }
   };
 
-  // ✅ FIXED: Proper delete endpoint
-  const handleDelete = async (id) => {
-    if (!confirm("Delete this testimonial permanently?")) return;
+  /* ================= DELETE ================= */
+  const deleteTestimonial = async (id) => {
+    if (!window.confirm("Delete this testimonial permanently?")) return;
+
     try {
-      console.log('🗑️ Deleting:', id);
       await axios.delete(`${API_TESTIMONIALS}/${id}`, { timeout: 10000 });
       setTestimonials(prev => prev.filter(t => t._id !== id));
-      showToast("✅ Review deleted successfully!");
+      showToast("🗑️ Testimonial deleted");
     } catch (err) {
-      console.error('❌ Delete failed:', err.response?.status || err.message);
-      showToast("❌ Failed to delete review", true);
+      console.error("❌ Delete failed:", err.response?.status || err.message);
+      showToast("❌ Failed to delete testimonial", true);
     }
   };
 
+  /* ================= UI ================= */
   return (
     <>
-      <PageHeader 
-        title={view === "pending" ? "Pending Reviews" : "Approved Testimonials"} 
-        count={testimonials.length} 
+      <PageHeader
+        title={view === "pending" ? "Pending Testimonials" : "Approved Testimonials"}
+        count={testimonials.length}
       />
 
-      {/* VIEW TOGGLE */}
+      {/* VIEW SWITCH */}
       <div className="flex gap-4 mb-8">
-        <button 
+        <button
           onClick={() => setView("pending")}
-          className={`px-6 py-2 rounded-full text-xs font-bold transition-all ${view === "pending" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-slate-500 border"}`}
+          className={`px-6 py-2 rounded-full text-xs font-bold transition ${
+            view === "pending"
+              ? "bg-indigo-600 text-white"
+              : "bg-white border text-slate-500"
+          }`}
         >
           Pending
         </button>
-        <button 
+
+        <button
           onClick={() => setView("all")}
-          className={`px-6 py-2 rounded-full text-xs font-bold transition-all ${view === "all" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-slate-500 border"}`}
+          className={`px-6 py-2 rounded-full text-xs font-bold transition ${
+            view === "all"
+              ? "bg-indigo-600 text-white"
+              : "bg-white border text-slate-500"
+          }`}
         >
-          Approved / All
+          Approved
         </button>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-indigo-600"></div>
+        </div>
+      ) : testimonials.length === 0 ? (
+        <div className="text-center py-20 border border-dashed rounded-xl text-slate-400 italic">
+          No testimonials found.
         </div>
       ) : (
         <div className="grid gap-6">
-          {testimonials.length === 0 ? (
-            <div className="text-center py-20 bg-white rounded-xl border border-dashed text-slate-400 italic">
-              No testimonials found in this category.
-            </div>
-          ) : (
-            testimonials.map(t => (
-              <div key={t._id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-bold text-slate-900">{t.name}</h3>
-                  {t.isApproved && (
-                    <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold uppercase">Live</span>
-                  )}
-                </div>
-                
-                <p className="text-slate-600 text-sm italic mb-6 leading-relaxed">"{t.message}"</p>
-                
-                {/* Rating stars */}
-                <div className="flex gap-1 mb-4 text-yellow-400 text-lg">
-                  {[...Array(5)].map((_, i) => (
-                    <span key={i}>★</span>
-                  ))}
-                  <span className="ml-2 text-sm text-slate-500">({t.rating}/5)</span>
-                </div>
-                
-                <div className="flex gap-3">
-                  {view === "pending" && !t.isApproved && (
-                    <button 
-                      onClick={() => approve(t._id)} 
-                      className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold text-xs uppercase hover:bg-emerald-700 transition-colors"
-                    >
-                      Approve
-                    </button>
-                  )}
-                  
-                  <button 
-                    onClick={() => handleDelete(t._id)} 
-                    className="bg-white text-red-600 border border-red-200 px-6 py-2 rounded-lg font-bold text-xs uppercase hover:bg-red-50 transition-colors"
-                  >
-                    Delete
-                  </button>
-                </div>
+          {testimonials.map((t) => (
+            <div
+              key={t._id}
+              className="bg-white p-6 rounded-xl border shadow-sm"
+            >
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="font-bold">{t.name}</h3>
+                {t.isApproved && (
+                  <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                    LIVE
+                  </span>
+                )}
               </div>
-            ))
-          )}
+
+              <p className="text-sm italic text-slate-600 mb-4">
+                "{t.message}"
+              </p>
+
+              <div className="flex gap-1 text-yellow-400 mb-4">
+                {[...Array(t.rating || 5)].map((_, i) => (
+                  <span key={i}>★</span>
+                ))}
+                <span className="ml-2 text-xs text-slate-500">
+                  ({t.rating}/5)
+                </span>
+              </div>
+
+              <div className="flex gap-3">
+                {view === "pending" && !t.isApproved && (
+                  <button
+                    onClick={() => approveTestimonial(t._id)}
+                    className="bg-emerald-600 text-white px-5 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700"
+                  >
+                    Approve
+                  </button>
+                )}
+
+                <button
+                  onClick={() => deleteTestimonial(t._id)}
+                  className="border border-red-200 text-red-600 px-5 py-2 rounded-lg text-xs font-bold hover:bg-red-50"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </>
   );
 }
+
 
 /* ================= MAIN ================= */
 export default function Admin() {
