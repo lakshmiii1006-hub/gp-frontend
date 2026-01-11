@@ -253,7 +253,7 @@ export default function Booking() {
       <div className="max-w-3xl mx-auto mt-12 px-6 text-center">
         <div className="bg-[#062419] text-white p-8 rounded-[2rem]">
           <h3 className="text-xl font-serif mb-4">Need Immediate Assistance?</h3>
-          <p className="text-emerald-300 mb-2">📞 Call: +91 98765 43210</p>
+          <p className="text-emerald-300 mb-2">📞 Call: +91 9844160165</p>
           <p className="text-pink-300">✉️ Email: bookings@gpflowerdecorators.com</p>
         </div>
       </div>
