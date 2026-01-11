@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Link } from 'react-router-dom'  // ✅ ADDED
-import { SignedIn, SignedOut, SignInButton } from '@clerk/clerk-react'  // ✅ ADDED
+import { Link } from 'react-router-dom'
 import axios from "axios";
 
 const API = "https://gp-backend-ddgp.onrender.com/api";
@@ -195,33 +194,20 @@ export default function Services() {
                       </span>
                     </div>
                     
-                    {/* ✅ REQUEST SERVICE → BOOKING PAGE */}
-                    <SignedIn>
-                      <Link 
-                        to="/book"
-                        onClick={scrollToTop}
-                        className="block w-full"
+                    {/* ✅ REQUEST SERVICE → BOOKING PAGE (PUBLIC) */}
+                    <Link 
+                      to="/book"
+                      onClick={scrollToTop}
+                      className="block w-full"
+                    >
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="w-full bg-black text-white py-2 text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-colors border border-black"
                       >
-                        <motion.button 
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className="w-full bg-black text-white py-2 text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-colors border border-black"
-                        >
-                          Request Service
-                        </motion.button>
-                      </Link>
-                    </SignedIn>
-                    <SignedOut>
-                      <SignInButton mode="modal">
-                        <motion.button 
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className="w-full bg-black text-white py-2 text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-colors border border-black"
-                        >
-                          Sign In to Request
-                        </motion.button>
-                      </SignInButton>
-                    </SignedOut>
+                        Request Service
+                      </motion.button>
+                    </Link>
                   </div>
                 </div>
               ))}
