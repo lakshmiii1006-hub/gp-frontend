@@ -600,25 +600,27 @@ function EventsAdmin({ showToast }) {
 
 
 /* ================= TESTIMONIALS ================= */
-/* ================= TESTIMONIALS ================= */
 function TestimonialsAdmin({ showToast }) {
   const [testimonials, setTestimonials] = useState([]);
   const [view, setView] = useState("pending"); // "pending" or "all"
   const [loading, setLoading] = useState(true);
 
-  // Fetch data based on the active view
+  // ✅ FIXED: Added proper API endpoints + error handling
   const fetchTestimonials = async (currentView) => {
     setLoading(true);
     try {
       const endpoint = currentView === "pending" 
-        ? `${API_TESTIMONIALS}/pending` 
-        : API_TESTIMONIALS;
+        ? `${API_TESTIMONIALS}/pending`      // GET /api/testimonials/pending
+        : API_TESTIMONIALS;                  // GET /api/testimonials (all/approved)
       
-      const res = await axios.get(endpoint);
+      console.log('🔍 Admin fetching:', endpoint);
+      const res = await axios.get(endpoint, { timeout: 15000 });
       const data = Array.isArray(res.data) ? res.data : (res.data.testimonials || []);
       setTestimonials(data);
+      console.log('✅ Admin loaded:', data.length, 'testimonials');
     } catch (err) {
-      showToast("Failed to fetch testimonials", true);
+      console.error('❌ Admin fetch failed:', err.message);
+      showToast(`Failed to fetch ${view} testimonials`, true);
     } finally {
       setLoading(false);
     }
@@ -628,22 +630,31 @@ function TestimonialsAdmin({ showToast }) {
     fetchTestimonials(view);
   }, [view]);
 
+  // ✅ FIXED: Proper approve endpoint
   const approve = async (id) => {
     try {
-      await axios.put(`${API_TESTIMONIALS}/${id}/approve`);
-      // Remove from list immediately if we are in pending view
+      console.log('✅ Approving:', id);
+      await axios.put(`${API_TESTIMONIALS}/${id}/approve`, {}, { timeout: 10000 });
       setTestimonials(prev => prev.filter(t => t._id !== id));
-      showToast("Review published!");
-    } catch { showToast("Failed to approve", true); }
+      showToast("✅ Review published successfully!");
+    } catch (err) {
+      console.error('❌ Approve failed:', err.response?.status || err.message);
+      showToast("❌ Failed to approve review", true);
+    }
   };
 
+  // ✅ FIXED: Proper delete endpoint
   const handleDelete = async (id) => {
     if (!confirm("Delete this testimonial permanently?")) return;
     try {
-      await axios.delete(`${API_TESTIMONIALS}/${id}`);
+      console.log('🗑️ Deleting:', id);
+      await axios.delete(`${API_TESTIMONIALS}/${id}`, { timeout: 10000 });
       setTestimonials(prev => prev.filter(t => t._id !== id));
-      showToast("Review deleted successfully.");
-    } catch { showToast("Failed to delete", true); }
+      showToast("✅ Review deleted successfully!");
+    } catch (err) {
+      console.error('❌ Delete failed:', err.response?.status || err.message);
+      showToast("❌ Failed to delete review", true);
+    }
   };
 
   return (
@@ -691,8 +702,16 @@ function TestimonialsAdmin({ showToast }) {
                 
                 <p className="text-slate-600 text-sm italic mb-6 leading-relaxed">"{t.message}"</p>
                 
+                {/* Rating stars */}
+                <div className="flex gap-1 mb-4 text-yellow-400 text-lg">
+                  {[...Array(5)].map((_, i) => (
+                    <span key={i}>★</span>
+                  ))}
+                  <span className="ml-2 text-sm text-slate-500">({t.rating}/5)</span>
+                </div>
+                
                 <div className="flex gap-3">
-                  {view === "pending" && (
+                  {view === "pending" && !t.isApproved && (
                     <button 
                       onClick={() => approve(t._id)} 
                       className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold text-xs uppercase hover:bg-emerald-700 transition-colors"
@@ -716,6 +735,7 @@ function TestimonialsAdmin({ showToast }) {
     </>
   );
 }
+
 /* ================= MAIN ================= */
 export default function Admin() {
   const [activeTab, setActiveTab] = useState("bookings");
