@@ -3,7 +3,10 @@ import emailjs from "@emailjs/browser";
 import { motion } from "framer-motion";
 import axios from "axios";
 
-const API = import.meta.env.VITE_API_URL || "https://gp-backend-ddgp.onrender.com/api";
+// FIXED: Hardcoded with /api
+const API = "https://gp-backend-ddgp.onrender.com/api";
+
+
 
 export default function Contact() {
   const formRef = useRef(null);
@@ -23,12 +26,18 @@ export default function Contact() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+   
+    
     setLoading(true);
     setStatus("");
+    
+    
 
     let emailSent = false;
 
+    // Try EmailJS first
     try {
+      
       await emailjs.sendForm(
         "service_svpaxuq",
         "template_y3jzi3l",
@@ -36,12 +45,18 @@ export default function Contact() {
         "0c4wM5jl3qrw0l50C"
       );
       emailSent = true;
+      
     } catch (err) {
-      console.error("EmailJS failed:", err);
+      
     }
 
+    // Try backend save - FIXED URL
     try {
-      await axios.post(`${API}/contacts`, {
+      
+      const fullUrl = `${API}/contacts`;
+      
+
+      const response = await axios.post(fullUrl, {
         name: formData.from_name,
         email: formData.from_email,
         message: formData.message,
@@ -49,13 +64,40 @@ export default function Contact() {
         read: false,
       });
 
+      
       setStatus("success");
       setFormData({ from_name: "", from_email: "", message: "" });
+     
+      
     } catch (err) {
-      console.error("Saving message failed:", err);
+     
+      
+      if (err.response) {
+       
+      }
+      
       setStatus("error");
     } finally {
       setLoading(false);
+     
+    }
+  };
+
+  // Test function to check backend directly
+  const testBackendConnection = async () => {
+    
+    const testUrl = `${API}/contacts`;
+   
+    
+    try {
+      // Test GET request
+      const getResponse = await axios.get(testUrl);
+      
+      
+      alert("✅ Backend is working! Contacts count: " + (Array.isArray(getResponse.data) ? getResponse.data.length : "Unknown"));
+    } catch (error) {
+      
+      alert(`❌ Backend test failed: ${error.message}`);
     }
   };
 
@@ -68,6 +110,8 @@ export default function Contact() {
           GP Flower Decorators — Sindgi
         </p>
       </div>
+
+      
 
       {/* HERO SECTION */}
       <section className="relative pt-32 pb-16 px-6 text-center overflow-hidden">
@@ -171,9 +215,27 @@ export default function Contact() {
               </form>
             </div>
 
-            {status === "success" && (
-              <p className="mt-6 text-emerald-600 font-serif italic text-center text-sm">✓ We have received your inquiry successfully.</p>
-            )}
+            {/* Status Messages */}
+            <div className="mt-6">
+              {status === "success" && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg">
+                  <p className="font-serif italic text-center">✓ We have received your inquiry successfully.</p>
+                </div>
+              )}
+              
+              {status === "error" && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                  <p className="font-serif italic text-center">
+                    ❌ There was an error submitting your inquiry. 
+                    <br />
+                    <span className="text-xs">Please try again or contact us directly.</span>
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            
+            
           </motion.div>
 
           {/* CONTACT INFO CARD */}
@@ -211,13 +273,13 @@ export default function Contact() {
                     <p className="font-serif text-xl opacity-80 italic">gpflowerdecorators@gmail.com</p>
                   </div>
                 </div>
+                
                 <div className="flex gap-6 items-start">
                   <span className="text-pink-400 font-serif italic text-2xl">04</span>
                   <div>
                     <h4 className="uppercase tracking-widest text-[10px] text-emerald-500 font-black mb-2 font-sans">Phone Number</h4>
-                    <p className=" text-xl ">91+ 9964118761</p>
-                    <p className=" text-xl  ">91+ 9844160165</p>
-
+                    <p className="text-xl">91+ 9964118761</p>
+                    <p className="text-xl">91+ 9844160165</p>
                   </div>
                 </div>
               </div>
@@ -229,11 +291,8 @@ export default function Contact() {
               </p>
             </div>
           </motion.div>
-
         </div>
       </section>
-
-     
     </div>
   );
 }

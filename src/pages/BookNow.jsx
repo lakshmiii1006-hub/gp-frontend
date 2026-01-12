@@ -40,7 +40,7 @@ export default function Booking() {
 
       if (response.ok) {
         setSubmitStatus("success");
-        alert(`🎉 Booking confirmed! Your Booking ID: ${data.bookingId}`);
+        alert(`🎉 Booking recieved! Your Booking ID: ${data.bookingId} will contact you soon`);
         // Clear form
         setBookingData({
           name: "",
@@ -113,7 +113,7 @@ export default function Booking() {
       {submitStatus === "success" && (
         <div className="max-w-2xl mx-auto mb-6 px-6">
           <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-center">
-            ✅ Booking submitted successfully! Check your email for confirmation.
+            ✅ Booking submitted successfully! Our team will contact you shortly.
           </div>
         </div>
       )}

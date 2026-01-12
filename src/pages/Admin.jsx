@@ -108,58 +108,196 @@ function BookingsAdmin({ showToast }) {
 }
 
 /* ================= CONTACTS ================= */
+
 function ContactsAdmin({ showToast }) {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
 
+ 
   useEffect(() => {
-    axios.get(API_CONTACTS).then(res => {
-      setContacts(Array.isArray(res.data) ? res.data : res.data.contacts || []);
-      setLoading(false);
-    });
-  }, []);
+    const fetchContacts = async () => {
+      try {
+        
+        const response = await axios.get(API_CONTACTS);
+       
+        
+        let contactsData = [];
+        if (Array.isArray(response.data)) {
+          contactsData = response.data;
+        } else if (response.data && Array.isArray(response.data.contacts)) {
+          contactsData = response.data.contacts;
+        } else if (response.data && typeof response.data === 'object') {
+          contactsData = [response.data];
+        }
+        
+       
+        setContacts(contactsData);
+        setLoading(false);
+      } catch (error) {
+        
+        showToast("Failed to load inquiries", true);
+        setLoading(false);
+      }
+    };
+
+    fetchContacts();
+  }, [showToast]);
 
   const markRead = async (id) => {
+    
+    const putUrl = `${API_CONTACTS}/${id}`;
+   
+    
     try {
-      await axios.put(`${API_CONTACTS}/${id}`, { read: true });
+      // Validate MongoDB ID
+      if (!id || id.length !== 24 || !/^[0-9a-fA-F]{24}$/.test(id)) {
+        
+        showToast("Invalid contact ID", true);
+        return;
+      }
+      
+      const response = await axios.put(putUrl, { read: true });
+     
+      
       setContacts(prev => prev.map(c => c._id === id ? { ...c, read: true } : c));
       showToast("Message marked as read");
-    } catch { showToast("Error updating status", true); }
+    } catch (error) {
+      
+      showToast("Error updating status", true);
+    }
   };
 
   const deleteContact = async (id) => {
-    if (!confirm("Delete contact?")) return;
+    if (!confirm("Are you sure you want to delete this inquiry?")) return;
+    
+   
+    const deleteUrl = `${API_CONTACTS}/${id}`;
+    
+    
     try {
-      await axios.delete(`${API_CONTACTS}/${id}`);
+      // Validate MongoDB ID
+      if (!id || id.length !== 24 || !/^[0-9a-fA-F]{24}$/.test(id)) {
+        
+        showToast("Invalid contact ID", true);
+        return;
+      }
+      
+      const response = await axios.delete(deleteUrl);
+      
       setContacts(prev => prev.filter(c => c._id !== id));
       showToast("Inquiry deleted");
-    } catch { showToast("Error deleting", true); }
+    } catch (error) {
+     
+      showToast("Error deleting inquiry", true);
+    }
   };
 
-  if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>;
+  const refreshContacts = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(API_CONTACTS);
+      const data = Array.isArray(response.data) ? response.data : [];
+      setContacts(data);
+      showToast(`Refreshed - ${data.length} inquiries loaded`);
+    } catch (error) {
+      
+      showToast("Failed to refresh", true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="flex flex-col justify-center items-center py-20">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+      <p className="text-slate-500">Loading inquiries...</p>
+    </div>
+  );
 
   return (
-    <>
-      <PageHeader title="Inquiries" count={contacts.length} />
-      <div className="grid gap-4">
-        {contacts.map(c => (
-          <div key={c._id} className={`p-6 rounded-xl border transition-all ${c.read ? "bg-white border-slate-200" : "bg-white border-l-4 border-l-indigo-500 shadow-sm"}`}>
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <h3 className="font-bold text-slate-900 text-lg">{c.name}</h3>
-                <p className="text-sm font-medium text-indigo-600">{c.email}</p>
-              </div>
-              <time className="text-xs text-slate-400 font-bold uppercase tracking-widest">{new Date(c.createdAt).toLocaleDateString()}</time>
-            </div>
-            <div className="bg-slate-50 p-4 rounded-lg text-slate-700 text-sm italic mb-5">"{c.message}"</div>
-            <div className="flex gap-2">
-              {!c.read && <button onClick={() => markRead(c._id)} className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded">Mark Read</button>}
-              <button onClick={() => deleteContact(c._id)} className="px-4 py-2 text-red-600 text-xs font-bold rounded">Delete</button>
-            </div>
-          </div>
-        ))}
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <PageHeader title="Inquiries" count={contacts.length} />
+        <button
+          onClick={refreshContacts}
+          className="px-4 py-2 bg-indigo-100 text-indigo-700 text-sm font-bold rounded-lg hover:bg-indigo-200 transition-colors"
+        >
+          🔄 Refresh
+        </button>
       </div>
-    </>
+      
+      {/* API Info */}
+      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        
+        <div className="flex gap-4 mt-2 text-xs">
+          
+          
+          <span>Unread: {contacts.filter(c => !c.read).length}</span>
+        </div>
+      </div>
+      
+      {contacts.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
+          <div className="text-5xl mb-4">📭</div>
+          <h3 className="text-xl font-bold text-slate-700 mb-2">No inquiries yet</h3>
+          <p className="text-slate-500">Customer inquiries will appear here</p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {contacts.map(contact => (
+            <div 
+              key={contact._id} 
+              className={`p-6 rounded-xl border transition-all ${
+                contact.read 
+                  ? "bg-white border-slate-200" 
+                  : "bg-white border-l-4 border-l-indigo-500 shadow-sm"
+              }`}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg">{contact.name}</h3>
+                  <p className="text-sm font-medium text-indigo-600">{contact.email}</p>
+                  {contact.emailSent && (
+                    <span className="inline-block mt-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded">
+                      Email Sent ✓
+                    </span>
+                  )}
+                </div>
+                <div className="text-right">
+                  <time className="text-xs text-slate-400 font-bold uppercase tracking-widest block">
+                    {new Date(contact.createdAt).toLocaleDateString()}
+                  </time>
+                  <span className="text-xs text-slate-500">
+                    {new Date(contact.createdAt).toLocaleTimeString()}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="bg-slate-50 p-4 rounded-lg text-slate-700 text-sm italic mb-5">
+                "{contact.message}"
+              </div>
+              
+              <div className="flex gap-2">
+                {!contact.read && (
+                  <button 
+                    onClick={() => markRead(contact._id)}
+                    className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 transition-colors"
+                  >
+                    Mark as Read
+                  </button>
+                )}
+                <button 
+                  onClick={() => deleteContact(contact._id)}
+                  className="px-4 py-2 border border-red-200 text-red-600 text-xs font-bold rounded hover:bg-red-50 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
